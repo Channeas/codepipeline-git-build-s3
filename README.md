@@ -6,7 +6,7 @@ This is a [CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/
 
 Build instructions should be stored in a [buildspec.yml](./buildspec.yml) file, that is placed in the root of the git repository. See the [buildspec.yml](./buildspec.yml) file for an example of how the file should be structured. You can also check the [official documentation](https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html)
 
-If you want a template that does not build code, but jost copies it to an S3 bucket, see the repository [codepipeline-git-s3](https://github.com/Channeas/codepipeline-git-s3)
+If you want a template that does not build code, but just copies it to an S3 bucket, see the repository [codepipeline-git-s3](https://github.com/Channeas/codepipeline-git-s3)
 
 ## Resources
 The template creates 4 resources in total, as well as 2 IAM policies and 1 S3 bucket policy:
