@@ -23,34 +23,34 @@ The template creates 4 resources in total, as well as 2 IAM policies and 1 S3 bu
 
 ## Parameters
 The template requires a total of 8 parameters:
-1. BranchName
+1. **BranchName**
 
    The branch in the git repository that you want to build
 
-2. BucketName
+2. **BucketName**
 
    What you want to call the output bucket. Must be DNS compliant
 
-3. CodeStarConnection
+3. **CodeStarConnection**
 
    Your [CodeStar Connection](https://docs.aws.amazon.com/dtconsole/latest/userguide/connections.html) to where the git repository is located
 
-4. ErrorDocument
+4. **ErrorDocument**
 
    The name of your error file
 
-5. IndexDocument
+5. **IndexDocument**
 
    The name of your index file
 
-6. PipelineName
+6. **PipelineName**
 
    What you want to call the CodePipeline pipeline
 
-7. RepositoryOwner
+7. **RepositoryOwner**
 
    The username of the git repository owner
 
-8. RepositoryName
+8. **RepositoryName**
 
    The name of the git repository
