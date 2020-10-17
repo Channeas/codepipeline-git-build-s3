@@ -1,0 +1,281 @@
+Resources:
+  # Actual pipeline
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      # Artifact store location
+      ArtifactStore:
+        Type: S3
+        Location: !Join
+          - ""
+          - - Ref: BucketName
+            - "-artifacts"
+
+      # Add the IAM role to the bucket
+      RoleArn: !GetAtt [PipelineRole, Arn]
+
+      # Stages
+      Stages:
+        # Stage for loading code from Github
+        - Name: Source
+          Actions:
+            # Determine the action type. See https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#actions-valid-providers
+            - ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: "1"
+
+              # Connect the pipeline to the git provider. The CodeStar connection could, as of right now, be either Github or Bitbucket. See documentation for latest info: https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodestarConnectionSource.html
+              Configuration:
+                ConnectionArn:
+                  Ref: CodeStarConnection
+                FullRepositoryId: !Join
+                  - ""
+                  - - Ref: RepositoryOwner
+                    - "/"
+                    - Ref: RepositoryName
+                BranchName:
+                  Ref: BranchName
+                OutputArtifactFormat: "CODE_ZIP"
+
+              # Name the output of this action. Note that this is the name that will be referenced further down the pipeline
+              OutputArtifacts:
+                - Name: SourceArtifact
+
+              # Action name
+              Name: Get_source
+
+        # Stage for building the code loaded from Github
+        - Name: Build
+          Actions:
+            - ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+
+              # Connect the build project
+              Configuration:
+                ProjectName: !Join
+                  - ""
+                  - - Ref: PipelineName
+                    - "-builder"
+                PrimarySource: SourceArtifact
+
+              # Get the source code artifact
+              InputArtifacts:
+                - Name: SourceArtifact
+
+              # Output the build files
+              OutputArtifacts:
+                - Name: BuildFiles
+
+              # Action name
+              Name: Build_code
+
+        # Stage for deploying the build
+        - Name: Deploy
+          Actions:
+            - ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: S3
+                Version: 1
+
+              # Configure where to deploy
+              Configuration:
+                BucketName:
+                  Ref: BucketName
+                Extract: True
+
+              # Get the artifact produced in the above stage
+              InputArtifacts:
+                - Name: BuildFiles
+
+              # Action name
+              Name: Deploy_build
+
+      # Pipeline name
+      Name:
+        Ref: PipelineName
+      # Tags
+      Tags:
+        - Key: Type
+          Value: Learning
+
+  # CodeBuild project
+  Builder:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+
+      # Build environment
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        Type: LINUX_CONTAINER
+
+      # Name of the CodeBuild project
+      Name: !Join
+        - ""
+        - - Ref: PipelineName
+          - "-builder"
+
+      # Queuing timeout
+      QueuedTimeoutInMinutes: 20
+
+      # IAM role for the builder
+      ServiceRole: !GetAtt [BuilderRole, Arn]
+
+      Source:
+        Type: CODEPIPELINE
+      Tags:
+        - Key: Type
+          Value: Learning
+
+      # Building timeout
+      TimeoutInMinutes: 5
+
+  # S3 bucket where builds will be stored
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Ref: BucketName
+      WebsiteConfiguration:
+        IndexDocument:
+          Ref: IndexDocumentName
+        ErrorDocument:
+          Ref: ErrorDocumentName
+
+  # S3 bucket where artifacts will be stored
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join
+        - ""
+        - - Ref: BucketName
+          - "-artifacts"
+
+  # IAM role for the pipeline
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: ["sts:AssumeRole"]
+            Effect: Allow
+            Principal:
+              Service: [codepipeline.amazonaws.com]
+
+      # Pipeline permissions
+      Policies:
+        - PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "s3:*"
+                  - "codestar-connections:UseConnection"
+                  - "codebuild:StartBuild"
+                  - "codebuild:StartBuildBatch"
+                  - "codebuild:BatchGetBuilds"
+                  - "codebuild:BatchGetBuildBatches"
+                Resource: "*"
+
+  # IAM role for the builder
+  BuilderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: ["sts:AssumeRole"]
+            Effect: Allow
+            Principal:
+              Service: [codebuild.amazonaws.com]
+
+      # Builder permissions
+      Policies:
+        - PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "cloudwatch:*"
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                Resource: "*"
+
+  # S3 Bucket Policy for the output bucket
+  BucketRole:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: OutputBucket
+      PolicyDocument:
+        Id: !Join
+          - ""
+          - - Ref: BucketName
+            - "_policy"
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: "*"
+            Action: "s3:*"
+            Resource: !Join
+              - ""
+              - - "arn:aws:s3:::"
+                - Ref: BucketName
+                - /*
+
+Parameters:
+  # Branch name
+  BranchName:
+    Type: String
+    Description: Enter the branch name that you want to be used for the build
+
+  # Name of the (new) output bucket
+  BucketName:
+    Type: String
+    Description: Enter what you want to call your output bucket. Note, the name must be DNS compliant
+
+  # CodeStar Connection
+  CodeStarConnection:
+    Type: String
+    Description: Enter the ARN of the CodeStar connection you want to use
+
+  # Name of the error file
+  ErrorDocumentName:
+    Type: String
+    Default: error.html
+    Description: Enter the name (or path) of your error file
+
+  # Name of the index file
+  IndexDocumentName:
+    Type: String
+    Default: index.html
+    Description: Enter the name (or path) of your index file
+
+  # Pipeline name
+  PipelineName:
+    Type: String
+    Description: Enter what you want to call this pipeline
+
+  # Github username
+  RepositoryOwner:
+    Type: String
+    Description: Enter the Github username of the repository owner
+
+  # Github repository name
+  RepositoryName:
+    Type: String
+    Description: Enter the name of the repository you want to build
