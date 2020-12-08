@@ -181,15 +181,32 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              # Codestar permissions
+              - Effect: "Allow"
+                Action:
+                  - "codestar-connections:UseConnection"
+                Resource: !Ref CodeStarConnection
+              # Bucket permissions
               - Effect: "Allow"
                 Action:
                   - "s3:*"
-                  - "codestar-connections:UseConnection"
+                Resource:
+                  - !Join
+                    - ""
+                    - - !GetAtt [OutputBucket, Arn]
+                      - /*
+                  - !Join
+                    - ""
+                    - - !GetAtt [ArtifactBucket, Arn]
+                      - /*
+              # Codebuild permissions
+              - Effect: "Allow"
+                Action:
                   - "codebuild:StartBuild"
                   - "codebuild:StartBuildBatch"
                   - "codebuild:BatchGetBuilds"
                   - "codebuild:BatchGetBuildBatches"
-                Resource: "*"
+                Resource: !GetAtt [Builder, Arn]
 
   # IAM role for the builder
   BuilderRole:
@@ -208,16 +225,25 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              # Cloudwatch permissions
               - Effect: "Allow"
                 Action:
                   - "cloudwatch:*"
                   - "logs:CreateLogGroup"
                   - "logs:CreateLogStream"
                   - "logs:PutLogEvents"
+                Resource: "*"
+              # Permissions for retrieving the source artifact
+              - Effect: "Allow"
+                Action:
                   - "s3:PutObject"
                   - "s3:GetObject"
                   - "s3:GetObjectVersion"
-                Resource: "*"
+                Resource: !Join
+                  - ""
+                  - - !GetAtt [ArtifactBucket, Arn]
+                    - /*
+              # Permissions for clearing the output bucket
               - Effect: "Allow"
                 Action:
                   - "s3:ListBucket"
