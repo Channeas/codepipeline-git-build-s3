@@ -116,6 +116,11 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
         Type: LINUX_CONTAINER
+        # Environment variable used for clearing the bucket before deployment
+        EnvironmentVariables:
+          - Name: OUTPUT_BUCKET
+            Value: !Ref OutputBucket
+            Type: PLAINTEXT
 
       # Name of the CodeBuild project
       Name: !Join
@@ -213,6 +218,17 @@ Resources:
                   - "s3:GetObject"
                   - "s3:GetObjectVersion"
                 Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:ListBucket"
+                Resource: !GetAtt [OutputBucket, Arn]
+              - Effect: "Allow"
+                Action:
+                  - "s3:DeleteObject"
+                Resource: !Join
+                  - ""
+                  - - !GetAtt [OutputBucket, Arn]
+                    - /*
 
   # S3 Bucket Policy for the output bucket
   BucketRole:

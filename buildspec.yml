@@ -10,6 +10,10 @@ phases:
   build:
     commands:
       - npm run build
+  post_build:
+    commands:
+      # Clear the deployment bucket to make sure all files are current
+      - aws s3 rm --recursive "s3://${OUTPUT_BUCKET}/"
 artifacts:
   files:
     - "**/*"
