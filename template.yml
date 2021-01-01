@@ -163,6 +163,12 @@ Resources:
         - ""
         - - Ref: BucketName
           - "-artifacts"
+      # Determines how long artifacts are stored
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays:
+              Ref: ArtifactLifeInDays
+            Status: Enabled
 
   # IAM role for the pipeline
   PipelineRole:
@@ -280,6 +286,14 @@ Resources:
                 - /*
 
 Parameters:
+  # How many days before artifacts expire
+  ArtifactLifeInDays:
+    Type: Number
+    Description: Specify how many days you want artifacts to be stored for (1->180 days accepted)
+    Default: 30
+    MaxValue: 180
+    MinValue: 1
+
   # Branch name
   BranchName:
     Type: String
